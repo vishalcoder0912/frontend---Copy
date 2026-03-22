@@ -218,14 +218,25 @@ function InvoiceForm({ patients, doctors, appointments, onSubmit }) {
     status: "Pending",
     due_date: "",
   });
+  const [errors, setErrors] = useState({});
 
   const handleChange = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
+  const validate = () => {
+    const next = {};
+    if (!form.patient_id) next.patient_id = "Patient is required";
+    if (!form.doctor_id) next.doctor_id = "Doctor is required";
+    if (!form.amount || Number(form.amount) <= 0) next.amount = "Amount is required";
+    setErrors(next);
+    return Object.keys(next).length === 0;
+  };
+
   return (
     <form className="grid gap-4" onSubmit={(event) => {
       event.preventDefault();
+      if (!validate()) return;
       onSubmit({
         patient_id: Number(form.patient_id),
         doctor_id: Number(form.doctor_id),
@@ -247,6 +258,7 @@ function InvoiceForm({ patients, doctors, appointments, onSubmit }) {
             ))}
           </SelectContent>
         </Select>
+        {errors.patient_id && <span className="text-xs text-rose-600">{errors.patient_id}</span>}
       </div>
       <div className="grid gap-2">
         <label className="text-sm font-medium">Doctor</label>
@@ -260,6 +272,7 @@ function InvoiceForm({ patients, doctors, appointments, onSubmit }) {
             ))}
           </SelectContent>
         </Select>
+        {errors.doctor_id && <span className="text-xs text-rose-600">{errors.doctor_id}</span>}
       </div>
       <div className="grid gap-2">
         <label className="text-sm font-medium">Appointment (optional)</label>
@@ -279,6 +292,7 @@ function InvoiceForm({ patients, doctors, appointments, onSubmit }) {
       <div className="grid gap-2">
         <label className="text-sm font-medium">Amount</label>
         <Input type="number" value={form.amount} onChange={(event) => handleChange("amount", event.target.value)} />
+        {errors.amount && <span className="text-xs text-rose-600">{errors.amount}</span>}
       </div>
       <div className="grid gap-2">
         <label className="text-sm font-medium">Due Date</label>

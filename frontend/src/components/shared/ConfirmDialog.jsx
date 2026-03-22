@@ -2,6 +2,9 @@ import PropTypes from "prop-types";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../ui/dialog";
 import { Button } from "../ui/button";
 
+/**
+ * Confirmation dialog component.
+ */
 export default function ConfirmDialog({
   open,
   title = "Confirm action",
