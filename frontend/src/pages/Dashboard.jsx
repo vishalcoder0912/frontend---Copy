@@ -1,5 +1,7 @@
-import { useQuery } from "@tanstack/react-query";
+import PropTypes from "prop-types";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { Download, FileText, Clock } from "lucide-react";
 import {
   LineChart,
   Line,
@@ -11,15 +13,18 @@ import {
   BarChart,
   Bar,
 } from "recharts";
-import { patients } from "../data/patients";
-import { doctors } from "../data/doctors";
-import { appointments } from "../data/appointments";
-import { billingRecords } from "../data/billing";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "../components/ui/table";
-import { Skeleton } from "../components/ui/skeleton";
+import LoadingSkeleton from "../components/shared/LoadingSkeleton";
+import EmptyState from "../components/shared/EmptyState";
+import { usePatients } from "../hooks/usePatients";
+import { useDoctors } from "../hooks/useDoctors";
+import { useAppointments } from "../hooks/useAppointments";
+import { useBilling } from "../hooks/useBilling";
+import { BADGE_VARIANTS } from "../utils/constants";
+import { downloadCSV, formatCurrency, formatDateTime } from "../utils/helpers";
 
 const monthlyPatients = [
   { month: "Jan", value: 120 },
@@ -39,31 +44,54 @@ const weeklyAppointments = [
   { day: "Sat", value: 14 },
 ];
 
-const statusVariant = {
-  Scheduled: "info",
-  Completed: "success",
-  Cancelled: "danger",
-};
-
+/**
+ * Dashboard overview page.
+ */
 export default function Dashboard() {
-  const { data, isLoading } = useQuery({
-    queryKey: ["dashboard"],
-    queryFn: async () => {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      return {
-        patients,
-        doctors,
-        appointments,
-        billingRecords,
-      };
-    },
-  });
+  const patients = usePatients({ page: 1, limit: 1 });
+  const doctors = useDoctors({ page: 1, limit: 1 });
+  const appointments = useAppointments({ page: 1, limit: 6 });
+  const billing = useBilling({ page: 1, limit: 100 });
 
-  const totalRevenue = data
-    ? data.billingRecords.reduce((sum, record) => sum + record.amount, 0)
-    : 0;
+  const [range, setRange] = useState("6m");
+  const [now, setNow] = useState(new Date());
 
-  const recentAppointments = data ? data.appointments.slice(0, 6) : [];
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const totalRevenue = useMemo(
+    () => billing.data?.items?.reduce((sum, record) => sum + Number(record?.amount || 0), 0) || 0,
+    [billing.data?.items]
+  );
+
+  const recentAppointments = appointments.data?.items || [];
+
+  const isLoading =
+    patients.isLoading ||
+    doctors.isLoading ||
+    appointments.isLoading ||
+    billing.isLoading;
+
+  const chartData = useMemo(() => {
+    if (range === "3m") return monthlyPatients.slice(-3);
+    if (range === "6m") return monthlyPatients;
+    return [...monthlyPatients, { month: "Jul", value: 310 }, { month: "Aug", value: 330 }];
+  }, [range]);
+
+  const handleExport = useCallback(() => {
+    downloadCSV("appointments.csv", recentAppointments.map((item) => ({
+      patient: item?.patient_name,
+      doctor: item?.doctor_name,
+      date: item?.appointment_date,
+      status: item?.status,
+    })));
+  }, [recentAppointments]);
+
+  const handleExportPdf = useCallback(() => {
+    window.print();
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -85,12 +113,29 @@ export default function Dashboard() {
         </div>
       </div>
 
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
+        <div className="flex items-center gap-2 text-sm text-slate-500">
+          <Clock className="h-4 w-4" />
+          <span>{now.toLocaleString()}</span>
+        </div>
+        <div className="ml-auto flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={handleExport}>
+            <Download className="h-4 w-4" />
+            Export CSV
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleExportPdf}>
+            <FileText className="h-4 w-4" />
+            Export PDF
+          </Button>
+        </div>
+      </div>
+
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {[
-          { label: "Total Patients", value: data?.patients.length ?? 0 },
-          { label: "Doctors", value: data?.doctors.length ?? 0 },
-          { label: "Appointments", value: data?.appointments.length ?? 0 },
-          { label: "Revenue", value: `?${totalRevenue.toLocaleString("en-IN")}` },
+          { label: "Total Patients", value: patients.data?.total ?? 0 },
+          { label: "Doctors", value: doctors.data?.total ?? 0 },
+          { label: "Appointments", value: appointments.data?.total ?? 0 },
+          { label: "Revenue", value: formatCurrency(totalRevenue) },
         ].map((stat) => (
           <Card key={stat.label}>
             <CardHeader>
@@ -98,7 +143,7 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent>
               {isLoading ? (
-                <Skeleton className="h-8 w-24" />
+                <LoadingSkeleton rows={1} />
               ) : (
                 <p className="text-2xl font-semibold text-slate-900">{stat.value}</p>
               )}
@@ -109,12 +154,13 @@ export default function Dashboard() {
 
       <div className="grid gap-4 xl:grid-cols-2">
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Monthly Patient Growth</CardTitle>
+            <SelectRange value={range} onChange={setRange} />
           </CardHeader>
           <CardContent className="h-72">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={monthlyPatients}>
+              <LineChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                 <XAxis dataKey="month" stroke="#64748b" />
                 <YAxis stroke="#64748b" />
@@ -149,11 +195,9 @@ export default function Dashboard() {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="space-y-2">
-              {Array.from({ length: 5 }).map((_, index) => (
-                <Skeleton key={index} className="h-10 w-full" />
-              ))}
-            </div>
+            <LoadingSkeleton rows={5} />
+          ) : recentAppointments.length === 0 ? (
+            <EmptyState title="No appointments" message="Create a new appointment to see data." />
           ) : (
             <Table>
               <TableHeader>
@@ -168,12 +212,14 @@ export default function Dashboard() {
               <TableBody>
                 {recentAppointments.map((appointment) => (
                   <TableRow key={appointment.id}>
-                    <TableCell>{appointment.patient}</TableCell>
-                    <TableCell>{appointment.doctor}</TableCell>
-                    <TableCell>{appointment.date} · {appointment.time}</TableCell>
-                    <TableCell>{appointment.type}</TableCell>
+                    <TableCell>{appointment?.patient_name}</TableCell>
+                    <TableCell>{appointment?.doctor_name}</TableCell>
+                    <TableCell>{formatDateTime(appointment?.appointment_date)}</TableCell>
+                    <TableCell>{appointment?.type}</TableCell>
                     <TableCell>
-                      <Badge variant={statusVariant[appointment.status]}>{appointment.status}</Badge>
+                      <Badge variant={BADGE_VARIANTS[appointment?.status] || "default"}>
+                        {appointment?.status}
+                      </Badge>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -185,3 +231,22 @@ export default function Dashboard() {
     </div>
   );
 }
+
+function SelectRange({ value, onChange }) {
+  return (
+    <select
+      className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-600"
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+    >
+      <option value="3m">Last 3 months</option>
+      <option value="6m">Last 6 months</option>
+      <option value="12m">Last 12 months</option>
+    </select>
+  );
+}
+
+SelectRange.propTypes = {
+  value: PropTypes.string.isRequired,
+  onChange: PropTypes.func.isRequired,
+};

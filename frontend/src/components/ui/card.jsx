@@ -1,4 +1,5 @@
 import * as React from "react";
+import PropTypes from "prop-types";
 import { cn } from "../../lib/utils";
 
 const Card = React.forwardRef(({ className, ...props }, ref) => (
@@ -30,5 +31,12 @@ const CardFooter = React.forwardRef(({ className, ...props }, ref) => (
   <div ref={ref} className={cn("px-5 pb-5", className)} {...props} />
 ));
 CardFooter.displayName = "CardFooter";
+
+Card.propTypes = { className: PropTypes.string };
+CardHeader.propTypes = { className: PropTypes.string };
+CardTitle.propTypes = { className: PropTypes.string };
+CardDescription.propTypes = { className: PropTypes.string };
+CardContent.propTypes = { className: PropTypes.string };
+CardFooter.propTypes = { className: PropTypes.string };
 
 export { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter };

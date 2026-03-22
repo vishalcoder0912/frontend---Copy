@@ -1,4 +1,5 @@
 import * as React from "react";
+import PropTypes from "prop-types";
 import * as AvatarPrimitive from "@radix-ui/react-avatar";
 import { cn } from "../../lib/utils";
 
@@ -28,5 +29,9 @@ const AvatarFallback = React.forwardRef(({ className, ...props }, ref) => (
   />
 ));
 AvatarFallback.displayName = "AvatarFallback";
+
+Avatar.propTypes = { className: PropTypes.string };
+AvatarImage.propTypes = { className: PropTypes.string };
+AvatarFallback.propTypes = { className: PropTypes.string };
 
 export { Avatar, AvatarImage, AvatarFallback };

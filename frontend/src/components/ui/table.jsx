@@ -1,4 +1,5 @@
 import * as React from "react";
+import PropTypes from "prop-types";
 import { cn } from "../../lib/utils";
 
 const Table = React.forwardRef(({ className, ...props }, ref) => (
@@ -32,5 +33,12 @@ const TableCell = React.forwardRef(({ className, ...props }, ref) => (
   <td ref={ref} className={cn("px-4 py-3 text-slate-700", className)} {...props} />
 ));
 TableCell.displayName = "TableCell";
+
+Table.propTypes = { className: PropTypes.string };
+TableHeader.propTypes = { className: PropTypes.string };
+TableBody.propTypes = { className: PropTypes.string };
+TableRow.propTypes = { className: PropTypes.string };
+TableHead.propTypes = { className: PropTypes.string };
+TableCell.propTypes = { className: PropTypes.string };
 
 export { Table, TableHeader, TableBody, TableRow, TableHead, TableCell };

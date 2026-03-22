@@ -1,58 +1,66 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import PropTypes from "prop-types";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useQuery } from "@tanstack/react-query";
-import { Star } from "lucide-react";
-import { doctors as doctorSeed } from "../data/doctors";
+import { Star, Calendar } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Badge } from "../components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../components/ui/dialog";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "../components/ui/select";
-import { Skeleton } from "../components/ui/skeleton";
+import LoadingSkeleton from "../components/shared/LoadingSkeleton";
+import EmptyState from "../components/shared/EmptyState";
+import useDebounce from "../hooks/useDebounce";
+import { useDoctors } from "../hooks/useDoctors";
+import { useAppointments } from "../hooks/useAppointments";
+import { BADGE_VARIANTS, STATUS } from "../utils/constants";
+import { compareStrings } from "../utils/helpers";
 
 const doctorSchema = z.object({
   name: z.string().min(2, "Name is required"),
   specialization: z.string().min(2, "Specialization is required"),
-  experience: z.coerce.number().min(1).max(40),
+  experience: z.coerce.number().min(0).max(40),
+  phone: z.string().optional(),
+  email: z.string().email().optional().or(z.literal("")),
+  availability: z.string().min(2, "Status is required"),
   rating: z.coerce.number().min(1).max(5),
-  status: z.string().min(1, "Status is required"),
 });
 
-const statusVariant = {
-  Available: "success",
-  "In Surgery": "warning",
-  "On Leave": "danger",
-};
-
+/**
+ * Doctors page with filter and schedule view.
+ */
 export default function Doctors() {
-  const { data, isLoading } = useQuery({
-    queryKey: ["doctors"],
-    queryFn: async () => {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      return doctorSeed;
-    },
-  });
-
-  const [doctors, setDoctors] = useState(doctorSeed);
   const [specialization, setSpecialization] = useState("all");
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
+  const [scheduleDoctor, setScheduleDoctor] = useState(null);
 
-  const specializations = useMemo(() => {
-    const values = new Set(doctors.map((doctor) => doctor.specialization));
-    return ["all", ...Array.from(values)];
-  }, [doctors]);
+  const debouncedSearch = useDebounce(search, 300);
+
+  const { data, isLoading, createDoctor, updateDoctor } = useDoctors({
+    page: 1,
+    limit: 100,
+    search: debouncedSearch,
+  });
+
+  const appointmentsQuery = useAppointments({ page: 1, limit: 100 });
+
+  const doctors = data?.items || [];
 
   const filteredDoctors = useMemo(() => {
-    return doctors.filter((doctor) => {
-      const matchesSpecialization = specialization === "all" || doctor.specialization === specialization;
-      const matchesSearch = doctor.name.toLowerCase().includes(search.toLowerCase());
-      return matchesSpecialization && matchesSearch;
+    const list = doctors.filter((doctor) => {
+      const matchSpecialization = specialization === "all" || doctor?.specialization === specialization;
+      return matchSpecialization;
     });
-  }, [doctors, specialization, search]);
+    return list.sort((a, b) => compareStrings(a?.name, b?.name));
+  }, [doctors, specialization]);
+
+  const specializations = useMemo(() => {
+    const values = new Set(doctors.map((doctor) => doctor?.specialization).filter(Boolean));
+    return ["all", ...Array.from(values)];
+  }, [doctors]);
 
   const form = useForm({
     resolver: zodResolver(doctorSchema),
@@ -60,17 +68,30 @@ export default function Doctors() {
       name: "",
       specialization: "Cardiology",
       experience: 5,
+      phone: "",
+      email: "",
+      availability: "Available",
       rating: 4.5,
-      status: "Available",
     },
   });
 
-  const onSubmit = (values) => {
-    const nextId = `D-${Math.floor(2000 + Math.random() * 900)}`;
-    setDoctors((prev) => [{ id: nextId, ...values }, ...prev]);
+  const onSubmit = useCallback(async (values) => {
+    await createDoctor(values);
     setOpen(false);
     form.reset();
-  };
+  }, [createDoctor, form]);
+
+  const handleToggleAvailability = useCallback(async (doctor) => {
+    const next = doctor?.availability === "Available" ? "On Leave" : "Available";
+    await updateDoctor({ id: doctor.id, payload: { availability: next } });
+  }, [updateDoctor]);
+
+  const scheduleItems = useMemo(() => {
+    if (!scheduleDoctor) return [];
+    return (appointmentsQuery.data?.items || []).filter(
+      (appointment) => appointment?.doctor_name === scheduleDoctor?.name
+    );
+  }, [appointmentsQuery.data?.items, scheduleDoctor]);
 
   return (
     <div className="space-y-6">
@@ -109,16 +130,28 @@ export default function Doctors() {
                   <Input type="number" step="0.1" {...form.register("rating")} />
                 </div>
               </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <label className="text-sm font-medium">Phone</label>
+                  <Input {...form.register("phone")} placeholder="Phone" />
+                </div>
+                <div className="grid gap-2">
+                  <label className="text-sm font-medium">Email</label>
+                  <Input type="email" {...form.register("email")} placeholder="Email" />
+                </div>
+              </div>
               <div className="grid gap-2">
                 <label className="text-sm font-medium">Status</label>
-                <Select value={form.watch("status")} onValueChange={(value) => form.setValue("status", value)}>
+                <Select value={form.watch("availability")} onValueChange={(value) => form.setValue("availability", value)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Available">Available</SelectItem>
-                    <SelectItem value="In Surgery">In Surgery</SelectItem>
-                    <SelectItem value="On Leave">On Leave</SelectItem>
+                    {STATUS.doctor.map((status) => (
+                      <SelectItem key={status} value={status}>
+                        {status}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -153,42 +186,74 @@ export default function Doctors() {
 
       {isLoading ? (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {Array.from({ length: 6 }).map((_, index) => (
-            <Skeleton key={index} className="h-44 w-full" />
-          ))}
+          <LoadingSkeleton rows={6} />
         </div>
+      ) : filteredDoctors.length === 0 ? (
+        <EmptyState title="No doctors" message="Try adjusting filters or add a new doctor." />
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {filteredDoctors.map((doctor) => (
             <Card key={doctor.id} className="transition hover:shadow-md">
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
-                  <span>{doctor.name}</span>
-                  <Badge variant={statusVariant[doctor.status]}>{doctor.status}</Badge>
+                  <span>{doctor?.name}</span>
+                  <Badge variant={BADGE_VARIANTS[doctor?.availability] || "default"}>{doctor?.availability}</Badge>
                 </CardTitle>
-                <p className="text-sm text-slate-500">{doctor.specialization}</p>
+                <p className="text-sm text-slate-500">{doctor?.specialization}</p>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex items-center gap-2 text-sm text-slate-600">
                   <span className="font-medium">Experience:</span>
-                  {doctor.experience} years
+                  {doctor?.experience ?? 0} years
                 </div>
                 <div className="flex items-center gap-2 text-sm text-slate-600">
                   <span className="font-medium">Rating:</span>
                   <span className="flex items-center gap-1">
                     <Star className="h-4 w-4 text-amber-400" />
-                    {doctor.rating}
+                    {doctor?.rating ?? "-"}
                   </span>
                 </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm">View Profile</Button>
-                  <Button variant="secondary" size="sm">Assign</Button>
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setScheduleDoctor(doctor)}>
+                    <Calendar className="h-4 w-4" />
+                    Schedule
+                  </Button>
+                  <Button variant="secondary" size="sm" onClick={() => handleToggleAvailability(doctor)}>
+                    Toggle Availability
+                  </Button>
                 </div>
               </CardContent>
             </Card>
           ))}
         </div>
       )}
+
+      <Dialog open={Boolean(scheduleDoctor)} onOpenChange={() => setScheduleDoctor(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Doctor Schedule</DialogTitle>
+            <p className="text-sm text-slate-500">{scheduleDoctor?.name}</p>
+          </DialogHeader>
+          {appointmentsQuery.isLoading ? (
+            <LoadingSkeleton rows={4} />
+          ) : scheduleItems.length === 0 ? (
+            <EmptyState title="No appointments" message="No upcoming schedule found." />
+          ) : (
+            <div className="space-y-2">
+              {scheduleItems.map((appointment) => (
+                <div key={appointment.id} className="rounded-lg border border-slate-200 p-3">
+                  <p className="text-sm font-semibold text-slate-900">{appointment?.patient_name}</p>
+                  <p className="text-xs text-slate-500">{appointment?.type} · {new Date(appointment?.appointment_date).toLocaleString()}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+
+Doctors.propTypes = {
+  initialFilter: PropTypes.string,
+};

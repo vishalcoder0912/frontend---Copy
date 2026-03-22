@@ -1,3 +1,5 @@
+import React from "react";
+import PropTypes from "prop-types";
 import { NavLink } from "react-router-dom";
 import { LayoutDashboard, Users, Stethoscope, CalendarClock, Receipt, X } from "lucide-react";
 import { cn } from "../../lib/utils";
@@ -11,7 +13,10 @@ const navItems = [
   { to: "/billing", label: "Billing", icon: Receipt },
 ];
 
-export default function Sidebar({ open, onClose }) {
+/**
+ * Sidebar navigation with mobile overlay.
+ */
+function Sidebar({ open = false, onClose = () => {} }) {
   return (
     <>
       <div
@@ -75,3 +80,10 @@ export default function Sidebar({ open, onClose }) {
     </>
   );
 }
+
+Sidebar.propTypes = {
+  open: PropTypes.bool,
+  onClose: PropTypes.func,
+};
+
+export default React.memo(Sidebar);

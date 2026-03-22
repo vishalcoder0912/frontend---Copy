@@ -1,58 +1,76 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useQuery } from "@tanstack/react-query";
-import { patients as patientSeed } from "../data/patients";
+import PropTypes from "prop-types";
+import { Link } from "react-router-dom";
+import { toast } from "sonner";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Badge } from "../components/ui/badge";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "../components/ui/table";
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../components/ui/dialog";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "../components/ui/select";
-import { Skeleton } from "../components/ui/skeleton";
+import LoadingSkeleton from "../components/shared/LoadingSkeleton";
+import ConfirmDialog from "../components/shared/ConfirmDialog";
+import Pagination from "../components/shared/Pagination";
+import EmptyState from "../components/shared/EmptyState";
+import useDebounce from "../hooks/useDebounce";
+import { usePatients } from "../hooks/usePatients";
+import { BADGE_VARIANTS, STATUS } from "../utils/constants";
+import { compareStrings } from "../utils/helpers";
 
 const patientSchema = z.object({
   name: z.string().min(2, "Name is required"),
-  age: z.coerce.number().min(1).max(120),
+  age: z.coerce.number().min(0).max(120),
   gender: z.string().min(1, "Gender is required"),
-  bloodType: z.string().min(1, "Blood type is required"),
-  contact: z.string().min(8, "Contact is required"),
-  lastVisit: z.string().min(4, "Last visit is required"),
+  blood_type: z.string().min(1, "Blood type is required"),
+  phone: z.string().min(8, "Phone is required"),
+  email: z.string().email().optional().or(z.literal("")),
   status: z.string().min(1, "Status is required"),
 });
 
-const statusVariant = {
-  Active: "success",
-  Critical: "danger",
-  Discharged: "default",
-};
-
+/**
+ * Patients page with CRUD operations.
+ */
 export default function Patients() {
-  const { data, isLoading } = useQuery({
-    queryKey: ["patients"],
-    queryFn: async () => {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      return patientSeed;
-    },
-  });
-
-  const [patients, setPatients] = useState(patientSeed);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [sortBy, setSortBy] = useState("name");
+  const [page, setPage] = useState(1);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState(null);
 
-  const filteredPatients = useMemo(() => {
-    const source = patients;
-    return source.filter((patient) => {
-      const matchesSearch = `${patient.name} ${patient.id} ${patient.contact}`
-        .toLowerCase()
-        .includes(search.toLowerCase());
-      const matchesStatus = statusFilter === "all" || patient.status === statusFilter;
-      return matchesSearch && matchesStatus;
-    });
-  }, [patients, search, statusFilter]);
+  const debouncedSearch = useDebounce(search, 300);
+
+  const { data, isLoading, createPatient, updatePatient, deletePatient, creating, updating } = usePatients({
+    page: 1,
+    limit: 200,
+    search: debouncedSearch,
+    status: statusFilter === "all" ? "" : statusFilter,
+  });
+
+  const patients = data?.items || [];
+
+  const sortedPatients = useMemo(() => {
+    const list = [...patients];
+    if (sortBy === "name") {
+      list.sort((a, b) => compareStrings(a?.name, b?.name));
+    } else if (sortBy === "status") {
+      list.sort((a, b) => compareStrings(a?.status, b?.status));
+    } else if (sortBy === "created") {
+      list.sort((a, b) => new Date(b?.created_at || 0) - new Date(a?.created_at || 0));
+    }
+    return list;
+  }, [patients, sortBy]);
+
+  const pageSize = 10;
+  const totalPages = Math.max(1, Math.ceil(sortedPatients.length / pageSize));
+  const pagedPatients = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return sortedPatients.slice(start, start + pageSize);
+  }, [page, sortedPatients]);
 
   const form = useForm({
     resolver: zodResolver(patientSchema),
@@ -60,42 +78,66 @@ export default function Patients() {
       name: "",
       age: 30,
       gender: "Male",
-      bloodType: "O+",
-      contact: "",
-      lastVisit: "2026-03-22",
+      blood_type: "O+",
+      phone: "",
+      email: "",
       status: "Active",
     },
   });
 
-  const handleOpenChange = (value) => {
+  const handleOpenChange = useCallback((value) => {
     setOpen(value);
     if (!value) {
       setEditing(null);
       form.reset();
     }
-  };
+  }, [form]);
 
-  const onSubmit = (values) => {
+  const onSubmit = useCallback(async (values) => {
     if (editing) {
-      setPatients((prev) =>
-        prev.map((item) => (item.id === editing.id ? { ...editing, ...values } : item))
-      );
+      await updatePatient({ id: editing.id, payload: values });
     } else {
-      const nextId = `P-${Math.floor(1000 + Math.random() * 9000)}`;
-      setPatients((prev) => [{ id: nextId, ...values }, ...prev]);
+      await createPatient(values);
     }
     handleOpenChange(false);
-  };
+  }, [createPatient, editing, handleOpenChange, updatePatient]);
 
-  const handleEdit = (patient) => {
+  const handleEdit = useCallback((patient) => {
     setEditing(patient);
-    form.reset({ ...patient });
+    form.reset({
+      name: patient?.name || "",
+      age: patient?.age || 0,
+      gender: patient?.gender || "",
+      blood_type: patient?.blood_type || "",
+      phone: patient?.phone || "",
+      email: patient?.email || "",
+      status: patient?.status || "Active",
+    });
     setOpen(true);
-  };
+  }, [form]);
 
-  const handleDelete = (id) => {
-    setPatients((prev) => prev.filter((patient) => patient.id !== id));
-  };
+  const handleDelete = useCallback(async () => {
+    if (!confirmDelete) return;
+    const deleted = confirmDelete;
+    await deletePatient(deleted.id);
+    setConfirmDelete(null);
+    toast("Patient deleted", {
+      action: {
+        label: "Undo",
+        onClick: async () => {
+          await createPatient({
+            name: deleted.name,
+            age: deleted.age,
+            gender: deleted.gender,
+            blood_type: deleted.blood_type,
+            phone: deleted.phone,
+            email: deleted.email,
+            status: deleted.status,
+          });
+        },
+      },
+    });
+  }, [confirmDelete, createPatient, deletePatient]);
 
   return (
     <div className="space-y-6">
@@ -142,17 +184,17 @@ export default function Patients() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <label className="text-sm font-medium">Blood Type</label>
-                  <Input {...form.register("bloodType")} placeholder="O+" />
+                  <Input {...form.register("blood_type")} placeholder="O+" />
                 </div>
                 <div className="grid gap-2">
-                  <label className="text-sm font-medium">Contact</label>
-                  <Input {...form.register("contact")} placeholder="Phone number" />
+                  <label className="text-sm font-medium">Phone</label>
+                  <Input {...form.register("phone")} placeholder="Phone number" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
-                  <label className="text-sm font-medium">Last Visit</label>
-                  <Input type="date" {...form.register("lastVisit")} />
+                  <label className="text-sm font-medium">Email</label>
+                  <Input type="email" {...form.register("email")} placeholder="Email" />
                 </div>
                 <div className="grid gap-2">
                   <label className="text-sm font-medium">Status</label>
@@ -161,15 +203,19 @@ export default function Patients() {
                       <SelectValue placeholder="Status" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Active">Active</SelectItem>
-                      <SelectItem value="Critical">Critical</SelectItem>
-                      <SelectItem value="Discharged">Discharged</SelectItem>
+                      {STATUS.patient.map((status) => (
+                        <SelectItem key={status} value={status}>
+                          {status}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
               </div>
               <DialogFooter>
-                <Button type="submit">Save Patient</Button>
+                <Button type="submit" disabled={creating || updating}>
+                  {creating || updating ? "Saving..." : "Save Patient"}
+                </Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -179,21 +225,34 @@ export default function Patients() {
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex w-full max-w-md items-center gap-2">
           <Input
-            placeholder="Search by name, ID, or contact"
+            placeholder="Search by name, email, or phone"
             value={search}
-            onChange={(event) => setSearch(event.target.value)}
+            onChange={(event) => {
+              setSearch(event.target.value);
+              setPage(1);
+            }}
           />
         </div>
-        <div className="w-full max-w-xs">
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger>
+        <div className="flex w-full flex-wrap gap-3 lg:w-auto">
+          <Select value={statusFilter} onValueChange={(value) => { setStatusFilter(value); setPage(1); }}>
+            <SelectTrigger className="w-44">
               <SelectValue placeholder="Filter by status" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="Active">Active</SelectItem>
-              <SelectItem value="Critical">Critical</SelectItem>
-              <SelectItem value="Discharged">Discharged</SelectItem>
+              {STATUS.patient.map((status) => (
+                <SelectItem key={status} value={status}>{status}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={sortBy} onValueChange={setSortBy}>
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="Sort by" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="name">Name</SelectItem>
+              <SelectItem value="status">Status</SelectItem>
+              <SelectItem value="created">Recently Added</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -201,10 +260,12 @@ export default function Patients() {
 
       <div className="rounded-xl border border-slate-200 bg-white">
         {isLoading ? (
-          <div className="space-y-3 p-6">
-            {Array.from({ length: 6 }).map((_, index) => (
-              <Skeleton key={index} className="h-10 w-full" />
-            ))}
+          <div className="p-6">
+            <LoadingSkeleton rows={6} />
+          </div>
+        ) : pagedPatients.length === 0 ? (
+          <div className="p-6">
+            <EmptyState title="No patients" message="Try adjusting filters or add a new patient." />
           </div>
         ) : (
           <Table>
@@ -214,33 +275,33 @@ export default function Patients() {
                 <TableHead>Age</TableHead>
                 <TableHead>Gender</TableHead>
                 <TableHead>Blood</TableHead>
-                <TableHead>Contact</TableHead>
-                <TableHead>Last Visit</TableHead>
+                <TableHead>Phone</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredPatients.map((patient) => (
+              {pagedPatients.map((patient) => (
                 <TableRow key={patient.id}>
                   <TableCell>
-                    <p className="font-medium text-slate-900">{patient.name}</p>
-                    <p className="text-xs text-slate-500">{patient.id}</p>
+                    <Link to={`/patients/${patient.id}`} className="font-medium text-slate-900 hover:text-sky-600">
+                      {patient?.name}
+                    </Link>
+                    <p className="text-xs text-slate-500">{patient?.email || "-"}</p>
                   </TableCell>
-                  <TableCell>{patient.age}</TableCell>
-                  <TableCell>{patient.gender}</TableCell>
-                  <TableCell>{patient.bloodType}</TableCell>
-                  <TableCell>{patient.contact}</TableCell>
-                  <TableCell>{patient.lastVisit}</TableCell>
+                  <TableCell>{patient?.age ?? "-"}</TableCell>
+                  <TableCell>{patient?.gender ?? "-"}</TableCell>
+                  <TableCell>{patient?.blood_type ?? "-"}</TableCell>
+                  <TableCell>{patient?.phone ?? "-"}</TableCell>
                   <TableCell>
-                    <Badge variant={statusVariant[patient.status]}>{patient.status}</Badge>
+                    <Badge variant={BADGE_VARIANTS[patient?.status] || "default"}>{patient?.status}</Badge>
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-2">
                       <Button variant="outline" size="sm" onClick={() => handleEdit(patient)}>
                         Edit
                       </Button>
-                      <Button variant="destructive" size="sm" onClick={() => handleDelete(patient.id)}>
+                      <Button variant="destructive" size="sm" onClick={() => setConfirmDelete(patient)}>
                         Delete
                       </Button>
                     </div>
@@ -251,6 +312,21 @@ export default function Patients() {
           </Table>
         )}
       </div>
+
+      <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
+
+      <ConfirmDialog
+        open={Boolean(confirmDelete)}
+        title="Delete patient"
+        description="This action cannot be undone."
+        confirmLabel="Delete"
+        onClose={() => setConfirmDelete(null)}
+        onConfirm={handleDelete}
+      />
     </div>
   );
 }
+
+Patients.propTypes = {
+  initialPage: PropTypes.number,
+};

@@ -1,4 +1,5 @@
 import * as React from "react";
+import PropTypes from "prop-types";
 import * as SelectPrimitive from "@radix-ui/react-select";
 import { ChevronDown, Check } from "lucide-react";
 import { cn } from "../../lib/utils";
@@ -59,5 +60,9 @@ const SelectItem = React.forwardRef(({ className, children, ...props }, ref) => 
   </SelectPrimitive.Item>
 ));
 SelectItem.displayName = "SelectItem";
+
+SelectTrigger.propTypes = { className: PropTypes.string, children: PropTypes.node };
+SelectContent.propTypes = { className: PropTypes.string, children: PropTypes.node };
+SelectItem.propTypes = { className: PropTypes.string, children: PropTypes.node };
 
 export { Select, SelectValue, SelectTrigger, SelectContent, SelectItem };

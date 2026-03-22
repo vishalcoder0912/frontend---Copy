@@ -1,4 +1,5 @@
 import * as React from "react";
+import PropTypes from "prop-types";
 import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu";
 import { cn } from "../../lib/utils";
 
@@ -30,5 +31,8 @@ const DropdownMenuItem = React.forwardRef(({ className, ...props }, ref) => (
   />
 ));
 DropdownMenuItem.displayName = "DropdownMenuItem";
+
+DropdownMenuContent.propTypes = { className: PropTypes.string, sideOffset: PropTypes.number };
+DropdownMenuItem.propTypes = { className: PropTypes.string };
 
 export { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem };
