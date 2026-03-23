@@ -1,0 +1,48 @@
+Hospital Management Folder Structure
+
+frontend/
+  public/
+  src/
+    assets/
+    components/
+      common/
+      patients/
+      doctors/
+      appointments/
+      billing/
+      inventory/
+    pages/
+    routes/
+    services/
+    store/
+    styles/
+    utils/
+
+backend/
+  docs/
+  src/
+    config/
+    controllers/
+      patients/
+      doctors/
+      appointments/
+      billing/
+      inventory/
+    database/
+    middlewares/
+    models/
+      patients/
+      doctors/
+      appointments/
+      billing/
+      inventory/
+    routes/
+      patients/
+      doctors/
+      appointments/
+      billing/
+      inventory/
+    services/
+    utils/
+    validators/
+  tests/
