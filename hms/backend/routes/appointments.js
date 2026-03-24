@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { authenticate } from "../middleware/auth.js";
+import { authenticate, authorize } from "../middleware/auth.js";
 import { validate, schemas } from "../middleware/validate.js";
 import {
   getAllAppointments,
@@ -11,10 +11,10 @@ import {
 
 const router = Router();
 
-router.get("/", authenticate, getAllAppointments);
-router.get("/:id", authenticate, getAppointmentById);
-router.post("/", authenticate, validate(schemas.appointment), createAppointment);
-router.put("/:id", authenticate, validate(schemas.appointment), updateAppointment);
-router.delete("/:id", authenticate, deleteAppointment);
+router.get("/", authenticate, authorize(["admin", "staff", "doctor", "nurse", "receptionist", "patient"]), getAllAppointments);
+router.get("/:id", authenticate, authorize(["admin", "staff", "doctor", "nurse", "receptionist", "patient"]), getAppointmentById);
+router.post("/", authenticate, authorize(["admin", "staff", "nurse", "receptionist"]), validate(schemas.appointmentCreate), createAppointment);
+router.put("/:id", authenticate, authorize(["admin", "staff", "doctor", "nurse", "receptionist"]), validate(schemas.appointmentUpdate), updateAppointment);
+router.delete("/:id", authenticate, authorize(["admin", "staff", "receptionist"]), deleteAppointment);
 
 export default router;

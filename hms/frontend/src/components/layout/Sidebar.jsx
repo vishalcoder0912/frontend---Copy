@@ -1,22 +1,19 @@
 import React from "react";
 import PropTypes from "prop-types";
 import { NavLink } from "react-router-dom";
-import { LayoutDashboard, Users, Stethoscope, CalendarClock, Receipt, X } from "lucide-react";
+import { X } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
-
-const navItems = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/patients", label: "Patients", icon: Users },
-  { to: "/doctors", label: "Doctors", icon: Stethoscope },
-  { to: "/appointments", label: "Appointments", icon: CalendarClock },
-  { to: "/billing", label: "Billing", icon: Receipt },
-];
+import { useAuth } from "../../context/AuthContext";
+import { ROLE_NAV_ITEMS } from "../../utils/roles";
 
 /**
  * Sidebar navigation with mobile overlay.
  */
 function Sidebar({ open = false, onClose = () => {} }) {
+  const { user } = useAuth();
+  const navItems = ROLE_NAV_ITEMS[user?.role] || ROLE_NAV_ITEMS.staff;
+
   return (
     <>
       <div

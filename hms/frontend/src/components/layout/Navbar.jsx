@@ -11,12 +11,14 @@ import {
   DropdownMenuItem,
 } from "../ui/dropdown-menu";
 import { useAuth } from "../../context/AuthContext";
+import { ROLE_LABELS } from "../../utils/roles";
 
 /**
  * Top navigation bar with search and profile.
  */
 function Navbar({ onOpenSidebar = () => {} }) {
   const { user, logout } = useAuth();
+  const roleLabel = ROLE_LABELS[user?.role] || "Staff";
 
   return (
     <header className="flex flex-col gap-4 border-b border-slate-200 bg-white px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
@@ -26,7 +28,7 @@ function Navbar({ onOpenSidebar = () => {} }) {
         </Button>
         <div>
           <p className="text-lg font-semibold text-slate-900">Hospital Management</p>
-          <p className="text-sm text-slate-500">Monitor operations and patient care</p>
+          <p className="text-sm text-slate-500">{roleLabel} workspace</p>
         </div>
       </div>
 

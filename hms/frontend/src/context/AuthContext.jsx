@@ -9,6 +9,7 @@ import {
 import { toast } from "sonner";
 import api from "../lib/api";
 import useLocalStorage from "../hooks/useLocalStorage";
+import { ROLE_LABELS } from "../utils/roles";
 
 const AuthContext = createContext(null);
 
@@ -26,8 +27,9 @@ export function AuthProvider({ children }) {
       }
       try {
         const response = await api.get("/auth/me");
-        setUser(response.data?.user);
-        setStoredUser(response.data?.user);
+        const authUser = response.data?.data?.user || response.data?.user || null;
+        setUser(authUser);
+        setStoredUser(authUser);
       } catch {
         localStorage.removeItem("medicare_token");
         setUser(null);
@@ -42,9 +44,20 @@ export function AuthProvider({ children }) {
   const login = async (payload) => {
     try {
       const response = await api.post("/auth/login", payload);
-      localStorage.setItem("medicare_token", response.data?.token);
-      setStoredUser(response.data?.user);
-      setUser(response.data?.user);
+      const authData = response.data?.data || response.data || {};
+      const expectedRole = payload?.expectedRole;
+      const actualRole = authData.user?.role || null;
+
+      if (expectedRole && actualRole && expectedRole !== actualRole) {
+        return {
+          success: false,
+          message: `This account belongs to ${ROLE_LABELS[actualRole] || actualRole}, not ${ROLE_LABELS[expectedRole] || expectedRole}.`,
+        };
+      }
+
+      localStorage.setItem("medicare_token", authData.token);
+      setStoredUser(authData.user || null);
+      setUser(authData.user || null);
       toast.success("Login successful");
       return { success: true };
     } catch (error) {
@@ -56,9 +69,10 @@ export function AuthProvider({ children }) {
   const register = async (payload) => {
     try {
       const response = await api.post("/auth/register", payload);
-      localStorage.setItem("medicare_token", response.data?.token);
-      setStoredUser(response.data?.user);
-      setUser(response.data?.user);
+      const authData = response.data?.data || response.data || {};
+      localStorage.setItem("medicare_token", authData.token);
+      setStoredUser(authData.user || null);
+      setUser(authData.user || null);
       toast.success("Account created");
       return { success: true };
     } catch (error) {
