@@ -1,0 +1,293 @@
+.lab-report-upload {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  max-width: 500px;
+  width: 100%;
+}
+
+.upload-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.upload-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  color: #6b7280;
+  transition: color 0.2s;
+}
+
+.close-btn:hover {
+  color: #1f2937;
+}
+
+.drop-zone {
+  border: 2px dashed #d1d5db;
+  border-radius: 8px;
+  padding: 32px;
+  text-align: center;
+  transition: all 0.2s;
+  cursor: pointer;
+  position: relative;
+}
+
+.drop-zone:hover,
+.drop-zone.drag-over {
+  border-color: #3b82f6;
+  background: #f0f9ff;
+}
+
+.drop-zone.has-files {
+  padding: 20px;
+}
+
+.file-input {
+  display: none;
+}
+
+.drop-label {
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.upload-icon {
+  width: 48px;
+  height: 48px;
+  color: #9ca3af;
+}
+
+.upload-text {
+  font-size: 14px;
+  color: #6b7280;
+  margin: 0;
+}
+
+.browse-link {
+  color: #3b82f6;
+  font-weight: 500;
+}
+
+.upload-hint {
+  font-size: 12px;
+  color: #9ca3af;
+  margin: 0;
+}
+
+.error-message {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  color: #dc2626;
+  font-size: 13px;
+  margin-top: 16px;
+}
+
+.success-message {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 6px;
+  color: #16a34a;
+  font-size: 13px;
+  margin-top: 16px;
+}
+
+.files-list,
+.uploaded-files {
+  margin-top: 16px;
+}
+
+.files-list h4,
+.uploaded-files h4 {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  margin: 0 0 12px 0;
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: #f9fafb;
+  border-radius: 6px;
+  margin-bottom: 8px;
+}
+
+.file-item.uploaded {
+  background: #f0fdf4;
+}
+
+.file-icon {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.file-icon.pdf {
+  color: #ef4444;
+}
+
+.file-icon.image {
+  color: #3b82f6;
+}
+
+.file-icon.doc {
+  color: #6b7280;
+}
+
+.file-icon.success {
+  color: #22c55e;
+}
+
+.file-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.file-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: #1f2937;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-size {
+  font-size: 11px;
+  color: #6b7280;
+  margin: 2px 0 0 0;
+}
+
+.remove-btn,
+.delete-btn {
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: #6b7280;
+  transition: color 0.2s;
+}
+
+.remove-btn:hover {
+  color: #ef4444;
+}
+
+.delete-btn:hover {
+  color: #ef4444;
+}
+
+.upload-progress {
+  margin-top: 16px;
+}
+
+.progress-bar {
+  height: 8px;
+  background: #e5e7eb;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #3b82f6, #60a5fa);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.progress-text {
+  font-size: 12px;
+  color: #6b7280;
+  text-align: center;
+  margin: 8px 0 0 0;
+}
+
+.upload-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.cancel-btn,
+.upload-btn {
+  flex: 1;
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.cancel-btn {
+  background: white;
+  border: 1px solid #d1d5db;
+  color: #374151;
+}
+
+.cancel-btn:hover:not(:disabled) {
+  background: #f9fafb;
+}
+
+.upload-btn {
+  background: #3b82f6;
+  border: none;
+  color: white;
+}
+
+.upload-btn:hover:not(:disabled) {
+  background: #2563eb;
+}
+
+.upload-btn:disabled,
+.cancel-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
