@@ -48,13 +48,14 @@ export default function useHospital(options = {}) {
 
   // Admissions
   const useAdmissions = (admOptions = {}) => {
-    const { patient_id = "", status = "", page = 1, limit = 20 } = admOptions;
+    const { patient_id = "", status = "", search = "", page = 1, limit = 20 } = admOptions;
     return useQuery({
       queryKey: ["admissions", admOptions],
       queryFn: async () => {
         const params = new URLSearchParams();
         if (patient_id) params.append("patient_id", patient_id);
         if (status) params.append("status", status);
+        if (search) params.append("search", search);
         params.append("page", page);
         params.append("limit", limit);
         const response = await api.get(`/hospital/admissions?${params}`);
@@ -85,6 +86,17 @@ export default function useHospital(options = {}) {
     },
   });
 
+  const deleteAdmission = useMutation({
+    mutationFn: async (id) => {
+      const response = await api.delete(`/hospital/admissions/${id}`);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admissions"] });
+      queryClient.invalidateQueries({ queryKey: ["beds"] });
+    },
+  });
+
   return {
     useBeds,
     createBed: createBed.mutateAsync,
@@ -96,7 +108,9 @@ export default function useHospital(options = {}) {
     useAdmissions,
     createAdmission: createAdmission.mutateAsync,
     updateAdmission: updateAdmission.mutateAsync,
+    deleteAdmission: deleteAdmission.mutateAsync,
     isCreatingAdmission: createAdmission.isPending,
     isUpdatingAdmission: updateAdmission.isPending,
+    isDeletingAdmission: deleteAdmission.isPending,
   };
 }

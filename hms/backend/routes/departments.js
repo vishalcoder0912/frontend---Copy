@@ -14,13 +14,13 @@ router.get("/", authenticate, authorize(["admin", "doctor", "staff", "nurse", "r
     const { search, status, page = 1, limit = 20 } = req.query;
     const offset = (page - 1) * limit;
     
-    let whereClause = "WHERE 1=1";
+    let whereClause = "WHERE is_deleted = false";
     const params = [];
     let paramCount = 0;
 
     if (search) {
       paramCount++;
-      whereClause += ` AND (name ILIKE $${paramCount} OR code ILIKE $${paramCount})`;
+      whereClause += ` AND name ILIKE $${paramCount}`;
       params.push(`%${search}%`);
     }
     if (status) {
@@ -33,7 +33,12 @@ router.get("/", authenticate, authorize(["admin", "doctor", "staff", "nurse", "r
     const total = parseInt(countResult.rows[0].count);
 
     const result = await query(
-      `SELECT * FROM departments ${whereClause} ORDER BY name LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`,
+      `SELECT d.*, doc.name as head_doctor_name 
+       FROM departments d 
+       LEFT JOIN doctors doc ON d.head_doctor_id = doc.id 
+       ${whereClause} 
+       ORDER BY d.name 
+       LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`,
       [...params, limit, offset]
     );
 
@@ -56,7 +61,13 @@ router.get("/", authenticate, authorize(["admin", "doctor", "staff", "nurse", "r
 
 router.get("/:id", authenticate, authorize(["admin", "doctor", "staff"]), async (req, res, next) => {
   try {
-    const result = await query("SELECT * FROM departments WHERE id = $1", [req.params.id]);
+    const result = await query(
+      `SELECT d.*, doc.name as head_doctor_name 
+       FROM departments d 
+       LEFT JOIN doctors doc ON d.head_doctor_id = doc.id 
+       WHERE d.id = $1 AND d.is_deleted = false`,
+      [req.params.id]
+    );
     if (!result.rows.length) {
       return res.status(404).json({ success: false, message: "Department not found" });
     }
@@ -66,15 +77,14 @@ router.get("/:id", authenticate, authorize(["admin", "doctor", "staff"]), async 
   }
 });
 
-router.post("/", authenticate, authorize(["admin"]), validate(schemas.departmentCreate), async (req, res, next) => {
+router.post("/", authenticate, authorize(["admin"]), async (req, res, next) => {
   try {
-    const { name, description, head_of_department, status } = req.body;
-    const code = generateCode(name);
+    const { name, description, head_doctor_id, status } = req.body;
 
     const result = await query(
-      `INSERT INTO departments (name, code, description, head_of_department, status) 
-       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-      [name, code, description, head_of_department, status || "Active"]
+      `INSERT INTO departments (name, description, head_doctor_id, status) 
+       VALUES ($1, $2, $3, $4) RETURNING *`,
+      [name, description || null, head_doctor_id || null, status || "Active"]
     );
 
     res.status(201).json({ success: true, data: result.rows[0], message: "Department created" });
@@ -83,15 +93,20 @@ router.post("/", authenticate, authorize(["admin"]), validate(schemas.department
   }
 });
 
-router.put("/:id", authenticate, authorize(["admin"]), validate(schemas.departmentUpdate), async (req, res, next) => {
+router.put("/:id", authenticate, authorize(["admin"]), async (req, res, next) => {
   try {
-    const { name, description, head_of_department, status } = req.body;
+    const { name, description, head_doctor_id, status } = req.body;
     
     const result = await query(
-      `UPDATE departments SET name = COALESCE($1, name), description = COALESCE($2, description), 
-       head_of_department = COALESCE($3, head_of_department), status = COALESCE($4, status), 
-       updated_at = NOW() WHERE id = $5 RETURNING *`,
-      [name, description, head_of_department, status, req.params.id]
+      `UPDATE departments SET 
+       name = COALESCE($1, name), 
+       description = COALESCE($2, description), 
+       head_doctor_id = $3, 
+       status = COALESCE($4, status), 
+       updated_at = NOW() 
+       WHERE id = $5 AND is_deleted = false 
+       RETURNING *`,
+      [name, description, head_doctor_id, status, req.params.id]
     );
 
     if (!result.rows.length) {
@@ -105,7 +120,10 @@ router.put("/:id", authenticate, authorize(["admin"]), validate(schemas.departme
 
 router.delete("/:id", authenticate, authorize(["admin"]), async (req, res, next) => {
   try {
-    const result = await query("DELETE FROM departments WHERE id = $1 RETURNING *", [req.params.id]);
+    const result = await query(
+      "UPDATE departments SET is_deleted = true, deleted_at = NOW() WHERE id = $1 RETURNING *",
+      [req.params.id]
+    );
     if (!result.rows.length) {
       return res.status(404).json({ success: false, message: "Department not found" });
     }
