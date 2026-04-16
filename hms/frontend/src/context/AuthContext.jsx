@@ -26,8 +26,7 @@ export function AuthProvider({ children }) {
         try {
           const response = await api.post("/auth/login", {
             email: "admin@medicare.com",
-            password: "Admin@123",
-            expectedRole: "admin"
+            password: "admin123"
           });
           const authData = response.data?.data || response.data || {};
           localStorage.setItem("medicare_token", authData.token);

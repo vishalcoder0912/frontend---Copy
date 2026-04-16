@@ -251,4 +251,25 @@ router.put("/admissions/:id", authenticate, authorize(["admin", "doctor", "nurse
   }
 });
 
+router.delete("/admissions/:id", authenticate, authorize(["admin", "doctor", "nurse"]), async (req, res, next) => {
+  try {
+    const existing = await query("SELECT * FROM admissions WHERE id = $1", [req.params.id]);
+    if (!existing.rows.length) {
+      return res.status(404).json({ success: false, message: "Admission not found" });
+    }
+
+    const admission = existing.rows[0];
+
+    await query("DELETE FROM admissions WHERE id = $1", [req.params.id]);
+
+    if (admission.bed_id && admission.status !== "Discharged") {
+      await query("UPDATE beds SET status = 'Available' WHERE id = $1", [admission.bed_id]);
+    }
+
+    res.json({ success: true, message: "Admission deleted" });
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;

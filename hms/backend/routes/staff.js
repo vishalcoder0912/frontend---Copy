@@ -8,7 +8,7 @@ const generateEmpCode = () => "EMP" + Math.floor(Math.random() * 10000);
 
 router.get("/", authenticate, authorize(["admin", "doctor", "staff"]), async (req, res, next) => {
   try {
-    const { search, department_id, status, page = 1, limit = 20 } = req.query;
+    const { search, department_id, status, position, page = 1, limit = 20 } = req.query;
     const offset = (page - 1) * limit;
     
     let whereClause = "WHERE s.id IS NOT NULL";
@@ -29,6 +29,11 @@ router.get("/", authenticate, authorize(["admin", "doctor", "staff"]), async (re
       paramCount++;
       whereClause += ` AND s.status = $${paramCount}`;
       params.push(status);
+    }
+    if (position) {
+      paramCount++;
+      whereClause += ` AND s.position = $${paramCount}`;
+      params.push(position);
     }
 
     const countResult = await query(

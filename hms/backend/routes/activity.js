@@ -15,7 +15,7 @@ router.get("/", authenticate, authorize(["admin"]), async (req, res, next) => {
 
     if (search) {
       paramCount++;
-      whereClause += ` AND (al.action ILIKE $${paramCount} OR al.details ILIKE $${paramCount} OR u.name ILIKE $${paramCount})`;
+      whereClause += ` AND (al.action ILIKE $${paramCount} OR CAST(al.details AS TEXT) ILIKE $${paramCount} OR u.name ILIKE $${paramCount})`;
       params.push(`%${search}%`);
     }
     if (action) {
@@ -30,17 +30,17 @@ router.get("/", authenticate, authorize(["admin"]), async (req, res, next) => {
     }
 
     const countResult = await query(
-      `SELECT COUNT(*) FROM activity_logs al LEFT JOIN users u ON al.user_id = u.id ${whereClause}`,
+      `SELECT COUNT(*) FROM audit_logs al LEFT JOIN users u ON al.user_id = u.id ${whereClause}`,
       params
     );
     const total = parseInt(countResult.rows[0].count);
 
     const result = await query(
       `SELECT al.*, u.name as user_name, u.email as user_email, u.role as user_role 
-       FROM activity_logs al 
+       FROM audit_logs al 
        LEFT JOIN users u ON al.user_id = u.id 
        ${whereClause} 
-       ORDER BY al.created_at DESC 
+       ORDER BY al.timestamp DESC 
        LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`,
       [...params, limit, offset]
     );
@@ -61,11 +61,25 @@ router.post("/", authenticate, async (req, res, next) => {
   try {
     const { action, entity_type, entity_id, details } = req.body;
     const userId = req.user?.id;
+    const requestId = req.requestId || req.headers["x-request-id"];
 
     const result = await query(
-      `INSERT INTO activity_logs (user_id, action, entity_type, entity_id, details, ip_address) 
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-      [userId, action, entity_type, entity_id, details, req.ip]
+      `INSERT INTO audit_logs (
+         request_id, user_id, user_role, action, entity_type, entity_id,
+         method, endpoint, ip_address, user_agent, response_status, success, details
+       ) VALUES ($1, $2, $3, $4, $5, $6, 'POST', '/api/v1/activity', $7, $8, 201, true, $9)
+       RETURNING *`,
+      [
+        requestId,
+        userId,
+        req.user?.role || null,
+        action,
+        entity_type,
+        entity_id,
+        req.ip,
+        req.get("User-Agent") || null,
+        JSON.stringify(details ?? {})
+      ]
     );
 
     res.status(201).json({ success: true, data: result.rows[0], message: "Activity logged" });

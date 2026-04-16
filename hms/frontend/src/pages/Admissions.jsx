@@ -81,6 +81,7 @@ export default function Admissions() {
   } = useHospital();
 
   const { data, isLoading, error, refetch } = useAdmissions({ 
+    search,
     status: statusFilter === "all" ? undefined : statusFilter, 
     page, 
     limit: 20 

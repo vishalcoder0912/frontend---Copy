@@ -96,6 +96,7 @@ export default function Staff() {
     search,
     department_id: departmentFilter === "all" ? "" : departmentFilter,
     status: statusFilter === "all" ? "" : statusFilter,
+    position: positionFilter === "all" ? "" : positionFilter,
     page,
     limit: 20,
   });

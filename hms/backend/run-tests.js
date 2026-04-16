@@ -67,7 +67,7 @@ function runJest(testPattern = '', options = {}) {
     watch = false
   } = options;
   
-  let command = 'npx jest';
+  let command = 'node --experimental-vm-modules ./node_modules/jest/bin/jest.js --config jest.config.mjs';
   
   if (testPattern) {
     command += ` ${testPattern}`;

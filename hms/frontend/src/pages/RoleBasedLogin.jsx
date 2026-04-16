@@ -1,109 +1,72 @@
-import { useMemo, useState } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { Link, Navigate, useNavigate } from "react-router-dom";
-import { ArrowLeft, Eye, EyeOff, Microscope, Pill, Receipt, ShieldCheck, Stethoscope, UserRound, Users, HeartPulse } from "lucide-react";
-import { Button } from "../components/ui/button";
-import { Input } from "../components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { useMemo, useState, useEffect } from "react";
+import { Navigate } from "react-router-dom";
+import { Microscope, Pill, Receipt, ShieldCheck, Stethoscope, UserRound, Users, HeartPulse, Loader2 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { HOME_BY_ROLE, ROLE_LABELS } from "../utils/roles";
 
-const schema = z.object({
-  email: z.string().email("Invalid email address"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
-});
-
-const roleCards = [
-  {
-    key: "admin",
-    title: "Admin Login",
-    description: "Full hospital oversight, configuration, billing, and records control.",
-    icon: ShieldCheck,
-    accent: "bg-rose-50 text-rose-700 border-rose-200",
-  },
-  {
-    key: "staff",
-    title: "Staff Login",
-    description: "Front office, patient records, appointments, and billing workflow access.",
-    icon: Users,
-    accent: "bg-sky-50 text-sky-700 border-sky-200",
-  },
-  {
-    key: "doctor",
-    title: "Doctor Login",
-    description: "Consultation, appointment, and doctor workspace access.",
-    icon: Stethoscope,
-    accent: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  },
-  {
-    key: "nurse",
-    title: "Nurse Login",
-    description: "Patient care coordination, vitals workflow, and lab coordination.",
-    icon: HeartPulse,
-    accent: "bg-pink-50 text-pink-700 border-pink-200",
-  },
-  {
-    key: "receptionist",
-    title: "Receptionist Login",
-    description: "Front desk registration, appointments, and patient intake.",
-    icon: Users,
-    accent: "bg-cyan-50 text-cyan-700 border-cyan-200",
-  },
-  {
-    key: "billing",
-    title: "Billing Login",
-    description: "Invoices, collections, dues, and payment processing.",
-    icon: Receipt,
-    accent: "bg-amber-50 text-amber-700 border-amber-200",
-  },
-  {
-    key: "lab_technician",
-    title: "Lab Technician Login",
-    description: "Lab order processing, results entry, and report management.",
-    icon: Microscope,
-    accent: "bg-violet-50 text-violet-700 border-violet-200",
-  },
-  {
-    key: "pharmacist",
-    title: "Pharmacist Login",
-    description: "Medicine inventory, dispensing, and stock control.",
-    icon: Pill,
-    accent: "bg-lime-50 text-lime-700 border-lime-200",
-  },
-  {
-    key: "patient",
-    title: "Patient Login",
-    description: "Appointments, doctor directory, billing visibility, and care summary.",
-    icon: UserRound,
-    accent: "bg-indigo-50 text-indigo-700 border-indigo-200",
-  },
-];
-
 export default function RoleBasedLogin() {
-  const navigate = useNavigate();
   const { isAuthenticated, user, login } = useAuth();
-  const [selectedRole, setSelectedRole] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [apiError, setApiError] = useState("");
-
-  const form = useForm({
-    resolver: zodResolver(schema),
-    defaultValues: {
-      email: "",
-      password: "",
-    },
-  });
-
-  const selectedRoleMeta = useMemo(
-    () => roleCards.find((role) => role.key === selectedRole) || null,
-    [selectedRole]
-  );
+  const [loggingIn, setLoggingIn] = useState(null);
 
   if (isAuthenticated) {
     return <Navigate to={HOME_BY_ROLE[user?.role] || "/"} replace />;
   }
+
+  const handleLogin = async (role) => {
+    setLoggingIn(role.key);
+    await login({ email: role.email, password: "admin123" });
+  };
+
+  return (
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.18),_transparent_35%),linear-gradient(135deg,#eff6ff,#f8fafc_45%,#e2e8f0)] px-6 py-10">
+      <div className="mx-auto max-w-6xl">
+        <div className="mb-8">
+          <p className="text-sm font-semibold uppercase tracking-[0.24em] text-sky-700">
+            Medicare HMS
+          </p>
+          <h1 className="mt-2 text-3xl font-semibold text-slate-900">
+            Role Based Login
+          </h1>
+          <p className="mt-2 max-w-2xl text-sm text-slate-600">
+            Click on a role to login automatically as that user.
+          </p>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {roleCards.map((role) => {
+            const Icon = role.icon;
+            const isLoading = loggingIn === role.key;
+            return (
+              <button
+                key={role.key}
+                type="button"
+                onClick={() => handleLogin(role)}
+                disabled={loggingIn !== null}
+                className={`rounded-2xl border p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md disabled:opacity-50 ${role.accent}`}
+              >
+                <div className="flex items-center justify-between">
+                  {isLoading ? (
+                    <Loader2 className="h-8 w-8 animate-spin" />
+                  ) : (
+                    <Icon className="h-8 w-8" />
+                  )}
+                  <span className="rounded-full bg-white/70 px-3 py-1 text-xs font-semibold uppercase tracking-wide">
+                    {ROLE_LABELS[role.key]}
+                  </span>
+                </div>
+                <h2 className="mt-6 text-xl font-semibold">{role.title}</h2>
+                <p className="mt-2 text-sm leading-6 opacity-90">{role.description}</p>
+                <div className="mt-6 text-sm font-semibold">
+                  {isLoading ? "Logging in..." : "Click to Login"}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
 
   const handleSubmit = async (values) => {
     setApiError("");

@@ -170,9 +170,13 @@ app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
 const HOST = process.env.HOST || "127.0.0.1";
-httpServer.listen(PORT, HOST, () => {
-  console.log(`Medicare HMS API running on http://${HOST}:${PORT}`);
-  console.log(`Health: http://${HOST}:${PORT}/health`);
-});
+const isDirectRun = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+
+if (process.env.NODE_ENV !== "test" && isDirectRun) {
+  httpServer.listen(PORT, HOST, () => {
+    console.log(`Medicare HMS API running on http://${HOST}:${PORT}`);
+    console.log(`Health: http://${HOST}:${PORT}/health`);
+  });
+}
 
 export default app;
